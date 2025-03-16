@@ -29,9 +29,11 @@ func main() {
 		headers["Content-Length"] = fmt.Sprintf("%d", len(req.PathParams["str"]))
 		return response.NewResponse(response.OK, headers, []byte(req.PathParams["str"]))
 	})
-	router.GET("/echo/{str}/more/{str2}", func(req *request.Request) *response.Response {
-
-		return response.NewResponse(response.OK, nil, []byte(req.PathParams["str"]+req.PathParams["str2"]))
+	router.GET("/user-agent", func(req *request.Request) *response.Response {
+		headers := make(map[string]string)
+		headers["Content-Type"] = "text/plain"
+		headers["Content-Length"] = fmt.Sprintf("%d", len(req.Headers["User-Agent"]))
+		return response.NewResponse(response.OK, headers, []byte(req.Headers["User-Agent"]))
 	})
 
 	router.PrintTree()

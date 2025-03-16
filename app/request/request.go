@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strings"
 )
 
 type Method string
@@ -44,8 +45,8 @@ func ParseRequest(reader io.Reader) *Request {
 		return nil
 	}
 
-	// TODO: Parse headers and body
-	headers := make(map[string]string)
+	headers := readHeaders(rdr)
+
 	body := []byte{}
 
 	return &Request{
@@ -56,4 +57,36 @@ func ParseRequest(reader io.Reader) *Request {
 		Body:       body,
 		Version:    version,
 	}
+}
+
+func readHeaders(rdr *bufio.Reader) map[string]string {
+	headers := make(map[string]string)
+
+	for {
+		headerLine, err := rdr.ReadString('\n')
+		if err != nil {
+			break
+		}
+		if len(headerLine) < 2 {
+			break
+		}
+		if headerLine[len(headerLine)-2] != '\r' || headerLine[len(headerLine)-1] != '\n' {
+			break
+		}
+		headerLine = headerLine[:len(headerLine)-2]
+		if headerLine == "" {
+			break
+		}
+
+		parts := strings.SplitN(headerLine, ":", 2)
+		if len(parts) != 2 {
+			break
+		}
+
+		key := parts[0]
+		value := strings.TrimSpace(parts[1])
+		headers[key] = value
+	}
+
+	return headers
 }
