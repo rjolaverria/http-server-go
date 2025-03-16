@@ -1,44 +1,199 @@
 package router
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/codecrafters-io/http-server-starter-go/app/request"
 	"github.com/codecrafters-io/http-server-starter-go/app/response"
 )
 
 type RequestHandler func(*request.Request) *response.Response
 
-type Route struct {
-	Method         string
-	Path           string
-	RequestHandler func(*request.Request) *response.Response
+type RouteNode struct {
+	path     string
+	param    string
+	isWild   bool
+	handlers map[request.Method]*RequestHandler
+	children []*RouteNode
 }
 
 type Router struct {
-	Routes map[request.Method]map[string]*Route
+	root *RouteNode
 }
 
 func NewRouter() *Router {
 	return &Router{
-		Routes: make(map[request.Method]map[string]*Route),
+		root: &RouteNode{
+			path:     "/",
+			handlers: make(map[request.Method]*RequestHandler),
+			children: []*RouteNode{},
+		},
 	}
 }
 
-func (r *Router) AddRoute(method request.Method, path string, handler RequestHandler) {
-	if _, exists := r.Routes[method]; !exists {
-		r.Routes[method] = make(map[string]*Route)
-	}
-	r.Routes[method][path] = &Route{
-		Method:         string(method),
-		Path:           path,
-		RequestHandler: handler,
-	}
+func (r *Router) GET(path string, handler RequestHandler) {
+	r.registerHandler(request.GET, path, &handler)
 }
 
-func (r *Router) GetRoute(method request.Method, path string) (*Route, bool) {
-	if routes, exists := r.Routes[method]; exists {
-		if route, exists := routes[path]; exists {
-			return route, true
+func (r *Router) FindHandler(method request.Method, path string) RequestHandler {
+	params := make(map[string]string)
+	node, found := r.findNode(path, params)
+
+	if node == nil || !found {
+		return nil
+	}
+
+	handler, found := node.handlers[method]
+	if handler == nil || !found {
+		return nil
+	}
+
+	wrappedHandler := func(req *request.Request) *response.Response {
+		req.PathParams = params
+		return (*handler)(req)
+	}
+
+	return wrappedHandler
+}
+
+func (r *Router) findNode(path string, params map[string]string) (*RouteNode, bool) {
+	if len(path) > 0 && path[0] != '/' {
+		path = "/" + path
+	}
+
+	current := r.root
+	segments := strings.Split(path, "/")[1:]
+
+	for _, segment := range segments {
+		if segment == "" {
+			continue
+		}
+
+		matched := false
+
+		for _, child := range current.children {
+			if !child.isWild && child.path == "/"+segment {
+				current = child
+				matched = true
+				break
+			}
+		}
+
+		if !matched {
+			for _, child := range current.children {
+				if child.isWild {
+					params[child.param] = segment
+					current = child
+					matched = true
+					break
+				}
+			}
+		}
+
+		if !matched {
+			return nil, false
 		}
 	}
-	return nil, false
+
+	return current, true
+}
+
+func (r *Router) registerHandler(method request.Method, path string, handler *RequestHandler) {
+	r.insertRoute(method, path, handler)
+}
+
+func (r *Router) insertRoute(method request.Method, path string, handler *RequestHandler) {
+	if len(path) > 0 && path[0] != '/' {
+		path = "/" + path
+	}
+
+	segments := strings.Split(path, "/")
+	current := r.root
+
+	for i, segment := range segments {
+		if i == 0 {
+			continue
+		}
+
+		matched := false
+		if strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}") {
+			paramName := segment[1 : len(segment)-1]
+
+			for _, child := range current.children {
+				if child.isWild {
+					if child.param != paramName {
+						panic(fmt.Sprintf("Conflicting parameter names: %s and %s", child.param, paramName))
+					}
+					current = child
+					matched = true
+					break
+				}
+			}
+
+			if !matched {
+				child := &RouteNode{
+					path:     "/" + segment,
+					isWild:   true,
+					param:    paramName,
+					handlers: make(map[request.Method]*RequestHandler),
+					children: []*RouteNode{},
+				}
+				current.children = append(current.children, child)
+				current = child
+			}
+		} else {
+			segmentPath := "/" + segment
+			for _, child := range current.children {
+				if !child.isWild && child.path == segmentPath {
+					current = child
+					matched = true
+					break
+				}
+			}
+
+			if !matched {
+				child := &RouteNode{
+					path:     segmentPath,
+					handlers: make(map[request.Method]*RequestHandler),
+					children: []*RouteNode{},
+				}
+				current.children = append(current.children, child)
+				current = child
+			}
+		}
+	}
+
+	if _, exists := current.handlers[method]; exists {
+		panic(fmt.Sprintf("Route already exists: %s %s", method, path))
+	}
+	current.handlers[method] = handler
+}
+
+func (r *Router) PrintTree() {
+	fmt.Println("\nRouter Tree:")
+	r.printNode(r.root, 0)
+}
+
+func (r *Router) printNode(node *RouteNode, level int) {
+	indent := strings.Repeat("  ", level)
+
+	fmt.Printf("%s[Node] Path: %s", indent, node.path)
+	if node.isWild {
+		fmt.Printf(" (Param: %s)", node.param)
+	}
+
+	if len(node.handlers) > 0 {
+		fmt.Printf(" Methods: [")
+		methods := make([]string, 0)
+		for method := range node.handlers {
+			methods = append(methods, string(method))
+		}
+		fmt.Printf("%s]", strings.Join(methods, ", "))
+	}
+	fmt.Println()
+
+	for _, child := range node.children {
+		r.printNode(child, level+1)
+	}
 }

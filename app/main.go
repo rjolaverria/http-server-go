@@ -20,9 +20,17 @@ func main() {
 	defer l.Close()
 
 	router := router.NewRouter()
-	router.AddRoute(request.GET, "/", func(*request.Request) *response.Response {
+	router.GET("/", func(*request.Request) *response.Response {
 		return response.NewResponse(response.OK, nil, nil)
 	})
+	router.GET("/echo/{str}", func(req *request.Request) *response.Response {
+		return response.NewResponse(response.OK, nil, []byte(req.PathParams["str"]))
+	})
+	router.GET("/echo/{str}/more/{str2}", func(req *request.Request) *response.Response {
+		return response.NewResponse(response.OK, nil, []byte(req.PathParams["str"]+req.PathParams["str2"]))
+	})
+
+	router.PrintTree()
 
 	for {
 		conn, err := l.Accept()
@@ -46,13 +54,13 @@ func handleConnection(conn net.Conn, router *router.Router) {
 		return
 	}
 
-	route, found := router.GetRoute(req.Method, req.Path)
-	if found {
-		res := route.RequestHandler(req)
+	handler := router.FindHandler(req.Method, req.Path)
+	if handler != nil {
+		res := handler(req)
 		res.Write(conn)
 		return
 	}
 
-	res := response.NewResponse(response.NotFound, nil, []byte("Not Found\n"))
+	res := response.NewResponse(response.NotFound, nil, nil)
 	res.Write(conn)
 }

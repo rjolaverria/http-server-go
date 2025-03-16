@@ -13,20 +13,12 @@ const (
 )
 
 type Request struct {
-	Method  Method
-	Path    string
-	Headers map[string]string
-	Body    []byte
-	Version string
-}
-
-func NewRequest(method Method, path string, headers map[string]string, body []byte) *Request {
-	return &Request{
-		Method:  method,
-		Path:    path,
-		Headers: headers,
-		Body:    body,
-	}
+	Method     Method
+	Path       string
+	PathParams map[string]string
+	Headers    map[string]string
+	Body       []byte
+	Version    string
 }
 
 func ParseRequest(reader io.Reader) *Request {
@@ -57,10 +49,11 @@ func ParseRequest(reader io.Reader) *Request {
 	body := []byte{}
 
 	return &Request{
-		Method:  method,
-		Path:    path,
-		Headers: headers,
-		Body:    body,
-		Version: version,
+		Method:     method,
+		Path:       path,
+		PathParams: make(map[string]string),
+		Headers:    headers,
+		Body:       body,
+		Version:    version,
 	}
 }
