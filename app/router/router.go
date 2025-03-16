@@ -58,7 +58,11 @@ func (r *Router) FindHandler(method request.Method, path string) RequestHandler 
 }
 
 func (r *Router) findNode(path string, params map[string]string) (*RouteNode, bool) {
-	if len(path) > 0 && path[0] != '/' {
+	if path == "" || path == "/" {
+		return r.root, true
+	}
+
+	if path[0] != '/' {
 		path = "/" + path
 	}
 
@@ -71,9 +75,8 @@ func (r *Router) findNode(path string, params map[string]string) (*RouteNode, bo
 		}
 
 		matched := false
-
 		for _, child := range current.children {
-			if !child.isWild && child.path == "/"+segment {
+			if !child.isWild && strings.TrimPrefix(child.path, "/") == segment {
 				current = child
 				matched = true
 				break
@@ -104,22 +107,29 @@ func (r *Router) registerHandler(method request.Method, path string, handler *Re
 }
 
 func (r *Router) insertRoute(method request.Method, path string, handler *RequestHandler) {
-	if len(path) > 0 && path[0] != '/' {
+	if path == "" || path == "/" {
+		if _, exists := r.root.handlers[method]; exists {
+			panic(fmt.Sprintf("Route already exists: %s %s", method, path))
+		}
+		r.root.handlers[method] = handler
+		return
+	}
+
+	if path[0] != '/' {
 		path = "/" + path
 	}
 
-	segments := strings.Split(path, "/")
+	segments := strings.Split(path, "/")[1:]
 	current := r.root
 
-	for i, segment := range segments {
-		if i == 0 {
+	for _, segment := range segments {
+		if segment == "" {
 			continue
 		}
 
 		matched := false
 		if strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}") {
 			paramName := segment[1 : len(segment)-1]
-
 			for _, child := range current.children {
 				if child.isWild {
 					if child.param != paramName {
