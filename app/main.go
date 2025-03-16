@@ -45,7 +45,7 @@ func main() {
 			continue
 		}
 
-		handleConnection(conn, router)
+		go handleConnection(conn, router)
 	}
 }
 
