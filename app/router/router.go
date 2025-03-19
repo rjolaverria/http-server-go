@@ -33,8 +33,12 @@ func NewRouter() *Router {
 	}
 }
 
-func (r *Router) GET(path string, handler RequestHandler) {
-	r.registerHandler(request.GET, path, &handler)
+func (r *Router) Get(path string, handler RequestHandler) {
+	r.registerHandler(request.Get, path, &handler)
+}
+
+func (r *Router) Post(path string, handler RequestHandler) {
+	r.registerHandler(request.Post, path, &handler)
 }
 
 func (r *Router) Handle(conn net.Conn) {

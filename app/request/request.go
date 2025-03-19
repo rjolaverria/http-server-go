@@ -4,13 +4,15 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
 type Method string
 
 const (
-	GET Method = "GET"
+	Get  Method = "GET"
+	Post Method = "POST"
 )
 
 type Request struct {
@@ -46,8 +48,7 @@ func ParseRequest(reader io.Reader) *Request {
 	}
 
 	headers := readHeaders(rdr)
-
-	body := []byte{}
+	body := readBody(rdr, headers)
 
 	return &Request{
 		Method:     method,
@@ -89,4 +90,24 @@ func readHeaders(rdr *bufio.Reader) map[string]string {
 	}
 
 	return headers
+}
+
+func readBody(rdr *bufio.Reader, headers map[string]string) []byte {
+	contentLength, exists := headers["Content-Length"]
+	if !exists {
+		return nil
+	}
+
+	length, err := strconv.Atoi(contentLength)
+	if err != nil {
+		return nil
+	}
+
+	body := make([]byte, length)
+	n, err := io.ReadFull(rdr, body)
+	if err != nil || n != length {
+		return nil
+	}
+
+	return body
 }

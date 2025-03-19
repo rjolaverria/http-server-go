@@ -26,23 +26,23 @@ func main() {
 	defer l.Close()
 
 	router := router.NewRouter()
-	router.GET("/", func(*request.Request) *response.Response {
+	router.Get("/", func(*request.Request) *response.Response {
 		return response.NewResponse(response.OK, nil, nil)
 	})
-	router.GET("/echo/{str}", func(req *request.Request) *response.Response {
+	router.Get("/echo/{str}", func(req *request.Request) *response.Response {
 		headers := make(map[string]string)
 		headers["Content-Type"] = "text/plain"
 		headers["Content-Length"] = fmt.Sprintf("%d", len(req.PathParams["str"]))
 		return response.NewResponse(response.OK, headers, []byte(req.PathParams["str"]))
 	})
-	router.GET("/user-agent", func(req *request.Request) *response.Response {
+	router.Get("/user-agent", func(req *request.Request) *response.Response {
 		headers := make(map[string]string)
 		headers["Content-Type"] = "text/plain"
 		headers["Content-Length"] = fmt.Sprintf("%d", len(req.Headers["User-Agent"]))
 		return response.NewResponse(response.OK, headers, []byte(req.Headers["User-Agent"]))
 	})
 
-	router.GET("/files/{filepath}", func(req *request.Request) *response.Response {
+	router.Get("/files/{filepath}", func(req *request.Request) *response.Response {
 		filepath := strings.TrimPrefix(req.PathParams["filepath"], "/")
 		fullPath := fmt.Sprintf("%s%c%s", *directory, os.PathSeparator, filepath)
 		file, err := os.ReadFile(fullPath)
@@ -55,6 +55,17 @@ func main() {
 		headers["Content-Length"] = fmt.Sprintf("%d", len(file))
 
 		return response.NewResponse(response.OK, headers, file)
+	})
+
+	router.Post("/files/{filepath}", func(req *request.Request) *response.Response {
+		filepath := strings.TrimPrefix(req.PathParams["filepath"], "/")
+		fullPath := fmt.Sprintf("%s%c%s", *directory, os.PathSeparator, filepath)
+		err := os.WriteFile(fullPath, req.Body, 0644)
+		if err != nil {
+			return response.NewResponse(response.InternalServerError, nil, nil)
+		}
+
+		return response.NewResponse(response.Created, nil, nil)
 	})
 
 	for {
