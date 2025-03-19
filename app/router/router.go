@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/codecrafters-io/http-server-starter-go/app/request"
@@ -36,25 +37,34 @@ func (r *Router) GET(path string, handler RequestHandler) {
 	r.registerHandler(request.GET, path, &handler)
 }
 
-func (r *Router) FindHandler(method request.Method, path string) RequestHandler {
+func (r *Router) Handle(conn net.Conn) {
+	req := request.ParseRequest(conn)
+
+	if req == nil {
+		res := response.NewResponse(response.InternalServerError, nil, nil)
+		res.Write(conn)
+		return
+	}
+
 	params := make(map[string]string)
-	node, found := r.findNode(path, params)
+	node, found := r.findNode(req.Path, params)
 
 	if node == nil || !found {
-		return nil
+		res := response.NewResponse(response.NotFound, nil, nil)
+		res.Write(conn)
+		return
 	}
 
-	handler, found := node.handlers[method]
+	handler, found := node.handlers[req.Method]
 	if handler == nil || !found {
-		return nil
+		res := response.NewResponse(response.MethodNotAllowed, nil, nil)
+		res.Write(conn)
+		return
 	}
 
-	wrappedHandler := func(req *request.Request) *response.Response {
-		req.PathParams = params
-		return (*handler)(req)
-	}
-
-	return wrappedHandler
+	req.PathParams = params
+	res := (*handler)(req)
+	res.Write(conn)
 }
 
 func (r *Router) findNode(path string, params map[string]string) (*RouteNode, bool) {

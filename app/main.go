@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/codecrafters-io/http-server-starter-go/app/request"
 	"github.com/codecrafters-io/http-server-starter-go/app/response"
@@ -11,6 +13,10 @@ import (
 )
 
 func main() {
+	directory := flag.String("directory", ".", "directory to serve")
+	flag.Parse()
+
+	fmt.Println("Serving directory:", *directory)
 
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
@@ -36,7 +42,20 @@ func main() {
 		return response.NewResponse(response.OK, headers, []byte(req.Headers["User-Agent"]))
 	})
 
-	router.PrintTree()
+	router.GET("/files/{filepath}", func(req *request.Request) *response.Response {
+		filepath := strings.TrimPrefix(req.PathParams["filepath"], "/")
+		fullPath := fmt.Sprintf("%s%c%s", *directory, os.PathSeparator, filepath)
+		file, err := os.ReadFile(fullPath)
+		if err != nil {
+			return response.NewResponse(response.NotFound, nil, nil)
+		}
+
+		headers := make(map[string]string)
+		headers["Content-Type"] = "application/octet-stream"
+		headers["Content-Length"] = fmt.Sprintf("%d", len(file))
+
+		return response.NewResponse(response.OK, headers, file)
+	})
 
 	for {
 		conn, err := l.Accept()
@@ -45,28 +64,9 @@ func main() {
 			continue
 		}
 
-		go handleConnection(conn, router)
+		go func() {
+			defer conn.Close()
+			router.Handle(conn)
+		}()
 	}
-}
-
-func handleConnection(conn net.Conn, router *router.Router) {
-	defer conn.Close()
-
-	req := request.ParseRequest(conn)
-
-	if req == nil {
-		res := response.NewResponse(response.InternalServerError, nil, []byte("Internal Error"))
-		res.Write(conn)
-		return
-	}
-
-	handler := router.FindHandler(req.Method, req.Path)
-	if handler != nil {
-		res := handler(req)
-		res.Write(conn)
-		return
-	}
-
-	res := response.NewResponse(response.NotFound, nil, nil)
-	res.Write(conn)
 }

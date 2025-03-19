@@ -17,6 +17,7 @@ func (s Status) String() string {
 var (
 	OK                  = Status{Code: 200, Name: "OK"}
 	NotFound            = Status{Code: 404, Name: "Not Found"}
+	MethodNotAllowed    = Status{Code: 405, Name: "Method Not Allowed"}
 	InternalServerError = Status{Code: 500, Name: "Internal Server Error"}
 )
 
