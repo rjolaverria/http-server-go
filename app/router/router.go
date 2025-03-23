@@ -69,11 +69,25 @@ func (r *Router) Handle(conn net.Conn) {
 	req.PathParams = params
 	res := (*handler)(req)
 
-	if req.Headers["Accept-Encoding"] == "gzip" {
-		res.Headers["Content-Encoding"] = "gzip"
-	}
+	handleEncoding(req, res)
 
 	res.Write(conn)
+}
+
+func handleEncoding(req *request.Request, res *response.Response) {
+	reqHeader, ok := req.Headers["Accept-Encoding"]
+
+	if !ok || reqHeader == "" {
+		return
+	}
+
+	encodings := strings.Split(reqHeader, ",")
+	for _, encoding := range encodings {
+		if strings.TrimSpace(encoding) == "gzip" {
+			res.Headers["Content-Encoding"] = "gzip"
+			break
+		}
+	}
 }
 
 func (r *Router) findNode(path string, params map[string]string) (*RouteNode, bool) {
