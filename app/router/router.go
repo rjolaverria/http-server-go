@@ -68,6 +68,11 @@ func (r *Router) Handle(conn net.Conn) {
 
 	req.PathParams = params
 	res := (*handler)(req)
+
+	if req.Headers["Accept-Encoding"] == "gzip" {
+		res.Headers["Content-Encoding"] = "gzip"
+	}
+
 	res.Write(conn)
 }
 
