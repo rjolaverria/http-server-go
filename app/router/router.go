@@ -81,7 +81,7 @@ func (r *Router) Handle(conn net.Conn) {
 func handleEncoding(req *request.Request, res *response.Response) {
 	reqHeader, ok := req.Headers["Accept-Encoding"]
 
-	if !ok || reqHeader == "" {
+	if !ok || reqHeader == "" || res.Body == nil {
 		return
 	}
 
@@ -90,17 +90,12 @@ func handleEncoding(req *request.Request, res *response.Response) {
 		if strings.TrimSpace(encoding) == "gzip" {
 			res.Headers["Content-Encoding"] = "gzip"
 
-			if res.Body == nil {
-				return
-			}
-
 			var buf bytes.Buffer
 			gz := gzip.NewWriter(&buf)
 			if _, err := gz.Write(*res.Body); err != nil {
-				// Handle error (optional: log or return)
 				return
 			}
-			gz.Close() // Ensure the writer is closed before using the buffer
+			gz.Close()
 
 			compressed := buf.Bytes()
 			res.Body = &compressed

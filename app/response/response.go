@@ -29,6 +29,12 @@ type Response struct {
 }
 
 func NewResponse(status Status, headers map[string]string, body []byte) *Response {
+	if headers == nil {
+		headers = make(map[string]string)
+	}
+	if body == nil {
+		body = []byte{}
+	}
 	return &Response{
 		Status:  status,
 		Headers: headers,
