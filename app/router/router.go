@@ -90,10 +90,18 @@ func handleEncoding(req *request.Request, res *response.Response) {
 		if strings.TrimSpace(encoding) == "gzip" {
 			res.Headers["Content-Encoding"] = "gzip"
 
+			if res.Body == nil {
+				return
+			}
+
 			var buf bytes.Buffer
 			gz := gzip.NewWriter(&buf)
-			defer gz.Close()
-			gz.Write(*res.Body)
+			if _, err := gz.Write(*res.Body); err != nil {
+				// Handle error (optional: log or return)
+				return
+			}
+			gz.Close() // Ensure the writer is closed before using the buffer
+
 			compressed := buf.Bytes()
 			res.Body = &compressed
 			break
