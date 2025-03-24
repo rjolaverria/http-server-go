@@ -32,13 +32,11 @@ func main() {
 	router.Get("/echo/{str}", func(req *request.Request) *response.Response {
 		headers := make(map[string]string)
 		headers["Content-Type"] = "text/plain"
-		headers["Content-Length"] = fmt.Sprintf("%d", len(req.PathParams["str"]))
 		return response.NewResponse(response.OK, headers, []byte(req.PathParams["str"]))
 	})
 	router.Get("/user-agent", func(req *request.Request) *response.Response {
 		headers := make(map[string]string)
 		headers["Content-Type"] = "text/plain"
-		headers["Content-Length"] = fmt.Sprintf("%d", len(req.Headers["User-Agent"]))
 		return response.NewResponse(response.OK, headers, []byte(req.Headers["User-Agent"]))
 	})
 

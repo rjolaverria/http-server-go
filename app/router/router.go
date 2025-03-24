@@ -1,6 +1,8 @@
 package router
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
 	"net"
 	"strings"
@@ -71,6 +73,8 @@ func (r *Router) Handle(conn net.Conn) {
 
 	handleEncoding(req, res)
 
+	res.Headers["Content-Length"] = fmt.Sprintf("%d", len(*res.Body))
+
 	res.Write(conn)
 }
 
@@ -81,10 +85,17 @@ func handleEncoding(req *request.Request, res *response.Response) {
 		return
 	}
 
-	encodings := strings.Split(reqHeader, ",")
-	for _, encoding := range encodings {
+	encodings := strings.SplitSeq(reqHeader, ",")
+	for encoding := range encodings {
 		if strings.TrimSpace(encoding) == "gzip" {
 			res.Headers["Content-Encoding"] = "gzip"
+
+			var buf bytes.Buffer
+			gz := gzip.NewWriter(&buf)
+			defer gz.Close()
+			gz.Write(*res.Body)
+			compressed := buf.Bytes()
+			res.Body = &compressed
 			break
 		}
 	}
